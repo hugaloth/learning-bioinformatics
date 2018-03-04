@@ -1,0 +1,5 @@
+fish, cat, banana,
+taco cat is a banana fish
+this file should be readable
+I hope that python will read this
+just read the damn file already

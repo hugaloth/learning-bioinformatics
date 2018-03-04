@@ -1,0 +1,1 @@
+Make a dictionary key generator add each word in string as a dict Key Assign number of times the word is found in the string as the value for it's respective key

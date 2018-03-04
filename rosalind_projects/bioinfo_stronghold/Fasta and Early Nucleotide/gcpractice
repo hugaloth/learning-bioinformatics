@@ -1,0 +1,11 @@
+gcf = open('rosalindGCpractice.txt', 'r')
+
+fastaf = gcf.readlines()\
+fasta = []
+header = []
+seq = []
+data = ''
+
+for line in fastaf:
+	line = line.strip
+	fasta.append(line)
