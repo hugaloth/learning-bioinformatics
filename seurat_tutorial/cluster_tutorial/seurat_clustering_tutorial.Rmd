@@ -1,0 +1,150 @@
+---
+title: "Seurat - Guided Clustering Tutorial"
+author: "Justice Williams"
+date: "3/4/2018"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,
+                      warning = FALSE,
+                      message = FALSE,
+                      error = FALSE,
+                      comment = NA,
+                      results = "asis")
+
+library(Seurat)
+library(tidyverse)
+
+```
+
+```{r}
+# Load PBMC dataset
+pbmc.data <- Read10X(data.dir = "~/windows_unix/seurat_tutorial/cluster_tutorial/filtered_gene_bc_matrices/hg19/")
+
+# As a matrix, the pbmc.data is 18.3X the size of it in the format it is read in with Read10X()
+
+# Initialize the Seurat object with the raw (non-normalized data)
+# Keep all genes expressed in >= 3 cells (~0.1% of the data)
+# Keep all cells with at least 200 detected genes
+pbmc <- CreateSeuratObject(raw.data = pbmc.data,
+                           min.cells = 3,
+                           min.genes = 200,
+                           project = "10X_PBMC")
+```
+
+```{r}
+# The number of genes and UMIs (nGene and nUMI) are automatically calculated
+# for every object by Seurat.  For non-UMI data, nUMI represents the sum of
+# the non-normalized values within a cell We calculate the percentage of
+# mitochondrial genes here and store it in percent.mito using AddMetaData.
+# We use object@raw.data since this represents non-transformed and
+# non-log-normalized counts The % of UMI mapping to MT-genes is a common
+# scRNA-seq QC metric.  NOTE: You must have the Matrix package loaded to
+# calculate the percent.mito values.
+mito.genes <- grep(pattern = "^MT-",
+                   x = rownames(x = pbmc@data),
+                   value = TRUE)
+
+percent.mito <- colSums(pbmc@raw.data[mito.genes, ]) / colSums(pbmc@raw.data)
+
+# AddMetaData adds columns to object@meta.data, and is great for stashing QC stats
+pbmc <- AddMetaData(object = pbmc,
+                    metadata = percent.mito,
+                    col.name = "percent.mito")
+
+# Create violin plots for nGene, nUMI, and percent.mito
+VlnPlot(object = pbmc,
+        features.plot = c("nGene",
+                          "nUMI",
+                          "percent.mito"),
+        nCol = 3)
+```
+
+```{r}
+# GenePlot is typically used to visualize gene-gene relationships, but can
+# be used for anything calculated by the object, i.e. columns in
+# object@meta.data, PC scores etc.  Since there is a rare subset of cells
+# with an outlier level of high mitochondrial percentage and also low UMI
+# content, we filter these as well
+par(mfrow= c(1, 2))
+GenePlot(object = pbmc,
+         gene1 = "nUMI",
+         gene2 = "percent.mito")
+GenePlot(object = pbmc,
+         gene1 = "nUMI",
+         gene2 = "nGene")
+
+```
+
+```{r}
+# We filter out cells that have unique gene counts over 2,500 or less than
+# 200 Note that low.thresholds and high.thresholds are used to define a
+# 'gate' -Inf and Inf should be used if you don't want a lower or upper
+# threshold.
+pbmc <- FilterCells(object = pbmc,
+                    subset.names = c("nGene",
+                                     "percent.mito"),
+                    low.thresholds = c(200,
+                                       -Inf),
+                    high.thresholds = c(2500,
+                                        0.05)
+                    )
+
+```
+
+```{r}
+# After removing unwanted cells from the dataset, the next step is to normalize the data
+# By default, we employ a global-scaling normalization method “LogNormalize” that
+# normalizes the gene expression measurements for each cell by the total expression,
+# multiplies this by a scale factor (10,000 by default), and log-transforms the result.
+pbmc <- NormalizeData(object = pbmc,
+                      normalization.method = "LogNormalize",
+                      scale.factor = 10000)
+
+# Detect variable genes across the single cells
+pbmc <- FindVariableGenes(object = pbmc,
+                          mean.function = ExpMean,
+                          dispersion.function = LogVMR,
+                          x.low.cutoff = 0.0125,
+                          x.high.cutoff = 3,
+                          y.cutoff = 0.5)
+```
+
+```{r}
+# Scaling the data and removing unwanted sources of variation
+pbmc <- ScaleData(object = pbmc,
+                  vars.to.regress = c("nUMI",
+                                      "percent.mito"))
+
+```
+
+```{r}
+# Run PCA analysis for linear dimensional reduction
+pbmc <- RunPCA(object = pbmc,
+               pc.genes = pbmc@var.genes,
+               do.print = TRUE,
+               pcs.print = 5)
+
+# PCA heatmap plot
+PCHeatmap(object = pbmc,
+          pc.use = 1,
+          cells.use = 500,
+          do.balanced = TRUE,
+          label.columns = FALSE)
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
